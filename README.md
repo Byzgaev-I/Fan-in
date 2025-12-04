@@ -105,7 +105,177 @@ o Time должно быть текущим временем (time.Now())
 · Имена источников метрик точно соответствуют требованиям: «CPU», «Memory», «Network»
 · Диапазоны значений метрик соответствуют указанным
 
+## Выполнение 
 
+### Код: 
+
+```go
+package main
+
+import (
+	"fmt"
+	"math/rand"
+	"sync"
+	"time"
+)
+
+// Metric - структура для хранения одной метрики
+type Metric struct {
+	Source string    // Название источника: "CPU", "Memory" или "Network"
+	Value  float64   // Значение метрики (случайное число)
+	Time   time.Time // Время создания метрики
+}
+
+// cpuMetrics - эмулятор метрик загрузки процессора
+func cpuMetrics() <-chan Metric {
+	// Создаем небуферизованный канал
+	ch := make(chan Metric)
+
+	// Запускаем горутину (параллельный поток)
+	go func() {
+		// defer гарантирует, что канал закроется после выхода из функции
+		defer close(ch)
+
+		// Генерируем ровно 5 метрик
+		for i := 0; i < 5; i++ {
+			// Создаем метрику
+			metric := Metric{
+				Source: "CPU",                // Название источника
+				Value:  rand.Float64() * 100, // Случайное число от 0 до 100
+				Time:   time.Now(),           // Текущее время
+			}
+
+			// Отправляем метрику в канал
+			ch <- metric
+
+			// Ждем 800 миллисекунд перед следующей отправкой
+			time.Sleep(800 * time.Millisecond)
+		}
+	}()
+
+	// Возвращаем канал только для чтения
+	return ch
+}
+
+// memoryMetrics - эмулятор метрик использования памяти
+func memoryMetrics() <-chan Metric {
+	ch := make(chan Metric)
+
+	go func() {
+		defer close(ch)
+
+		// Генерируем ровно 5 метрик
+		for i := 0; i < 5; i++ {
+			metric := Metric{
+				Source: "Memory",               // Название источника
+				Value:  rand.Float64() * 16384, // Случайное число от 0 до 16384 МБ
+				Time:   time.Now(),
+			}
+
+			ch <- metric
+
+			// Ждем 1200 миллисекунд (1.2 секунды)
+			time.Sleep(1200 * time.Millisecond)
+		}
+	}()
+
+	return ch
+}
+
+// networkMetrics - эмулятор метрик сетевой активности
+func networkMetrics() <-chan Metric {
+	ch := make(chan Metric)
+
+	go func() {
+		defer close(ch)
+
+		// Генерируем ровно 5 метрик
+		for i := 0; i < 5; i++ {
+			metric := Metric{
+				Source: "Network",             // Название источника
+				Value:  rand.Float64() * 1000, // Случайное число от 0 до 1000 Мбит/с
+				Time:   time.Now(),
+			}
+
+			ch <- metric
+
+			// Ждем 1500 миллисекунд (1.5 секунды)
+			time.Sleep(1500 * time.Millisecond)
+		}
+	}()
+
+	return ch
+}
+
+// fanIn - объединяет несколько каналов в один (паттерн Fan-in)
+func fanIn(channels ...<-chan Metric) <-chan Metric {
+	// Создаем выходной канал, куда будем собирать все метрики
+	out := make(chan Metric)
+
+	// WaitGroup помогает дождаться завершения всех горутин
+	var wg sync.WaitGroup
+
+	// Для каждого входного канала создаем отдельную горутину
+	for _, ch := range channels {
+		// Увеличиваем счетчик горутин
+		wg.Add(1)
+
+		// Запускаем горутину для этого канала
+		go func(c <-chan Metric) {
+			// Уменьшаем счетчик при завершении горутины
+			defer wg.Done()
+
+			// Читаем все данные из входного канала
+			// и отправляем их в выходной канал
+			for metric := range c {
+				out <- metric
+			}
+		}(ch) // Передаем канал в горутину
+	}
+
+	// Запускаем отдельную горутину для закрытия выходного канала
+	go func() {
+		// Ждем завершения всех горутин
+		wg.Wait()
+		// Закрываем выходной канал после завершения всех источников
+		close(out)
+	}()
+
+	// Возвращаем канал только для чтения
+	return out
+}
+
+// main - главная функция программы
+func main() {
+	// Инициализируем генератор случайных чисел
+	rand.Seed(time.Now().UnixNano())
+
+	// Выводим сообщение о запуске
+	fmt.Println("Запуск системы мониторинга...")
+
+	// Создаем три канала от разных источников
+	cpuCh := cpuMetrics()
+	memoryCh := memoryMetrics()
+	networkCh := networkMetrics()
+
+	// Объединяем все три канала в один с помощью fanIn
+	mergedCh := fanIn(cpuCh, memoryCh, networkCh)
+
+	// Читаем все метрики из объединенного канала
+	// Цикл завершится автоматически, когда канал закроется
+	for metric := range mergedCh {
+		// Выводим метрику в требуемом формате
+		fmt.Printf("Источник: %s, Значение: %.2f, Время: %s\n",
+			metric.Source,
+			metric.Value,
+			metric.Time.Format("15:04:05.000"))
+	}
+
+	// Выводим сообщение о завершении
+	fmt.Println("Мониторинг завершен.")
+}
+
+```
 
 
 
