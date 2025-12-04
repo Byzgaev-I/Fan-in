@@ -412,7 +412,7 @@ func main() {
 
 ### Формат вывода соответствует: 
 
-![image](
+![image](https://github.com/Byzgaev-I/Fan-in/blob/main/1%20канаы.png)
 
 
 
