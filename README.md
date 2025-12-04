@@ -277,9 +277,48 @@ func main() {
 
 ```
 
+### 1 cpuMetrics() - ПОЛНОСТЬЮ СООТВЕТСТВУЕТ
 
+```go
+func cpuMetrics() <-chan Metric {
+    ch := make(chan Metric)              // Небуферизованный канал
+    go func() {                          // Горутина
+        defer close(ch)                  // defer close(ch)
+        for i := 0; i < 5; i++ {         // 5 метрик
+            metric := Metric{
+                Source: "CPU",           // Строго "CPU"
+                Value: rand.Float64() * 100,  //  0-100
+                Time: time.Now(),        // time.Now()
+            }
+            ch <- metric
+            time.Sleep(800 * time.Millisecond) // 800 мс
+        }
+    }()
+    return ch                            // <-chan Metric
+}
 
+```
 
+### 2 memoryMetrics() - ПОЛНОСТЬЮ СООТВЕТСТВУЕТ
+
+```go
+func memoryMetrics() <-chan Metric {
+    ch := make(chan Metric)              // Небуферизованный канал
+    go func() {                          // Горутина
+        defer close(ch)                  // defer close(ch)
+        for i := 0; i < 5; i++ {         // 5 метрик
+            metric := Metric{
+                Source: "Memory",        // Строго "Memory"
+                Value: rand.Float64() * 16384, // 0-16384
+                Time: time.Now(),        // time.Now()
+            }
+            ch <- metric
+            time.Sleep(1200 * time.Millisecond) // 1200 мс
+        }
+    }()
+    return ch                            // <-chan Metric
+}
+```
 
 
 
