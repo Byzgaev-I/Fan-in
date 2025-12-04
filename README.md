@@ -182,7 +182,7 @@ func memoryMetrics() <-chan Metric {
 	return ch
 }
 
-// networkMetrics - эмулятор метрик сетевой активности
+// networkMetrics эмулятор метрик сетевой активности
 func networkMetrics() <-chan Metric {
 	ch := make(chan Metric)
 
@@ -192,7 +192,7 @@ func networkMetrics() <-chan Metric {
 		// Генерируем ровно 5 метрик
 		for i := 0; i < 5; i++ {
 			metric := Metric{
-				Source: "Network",             // Название источника
+				Source: "Network",             // Источник
 				Value:  rand.Float64() * 1000, // Случайное число от 0 до 1000 Мбит/с
 				Time:   time.Now(),
 			}
