@@ -277,7 +277,7 @@ func main() {
 
 ```
 
-### 1 cpuMetrics() - ПОЛНОСТЬЮ СООТВЕТСТВУЕТ
+### 1 cpuMetrics() - СООТВЕТСТВУЕТ
 
 ```go
 func cpuMetrics() <-chan Metric {
@@ -299,7 +299,7 @@ func cpuMetrics() <-chan Metric {
 
 ```
 
-### 2 memoryMetrics() - ПОЛНОСТЬЮ СООТВЕТСТВУЕТ
+### 2 memoryMetrics() - СООТВЕТСТВУЕТ
 
 ```go
 func memoryMetrics() <-chan Metric {
@@ -319,6 +319,125 @@ func memoryMetrics() <-chan Metric {
     return ch                            // <-chan Metric
 }
 ```
+
+### 3  - networkMetrics() - СООТВЕТСТВУЕТ
+
+```go
+func networkMetrics() <-chan Metric {
+    ch := make(chan Metric)              // Небуферизованный канал
+    go func() {                          // Горутина
+        defer close(ch)                  // defer close(ch)
+        for i := 0; i < 5; i++ {         // Ровно 5 метрик
+            metric := Metric{
+                Source: "Network",       //Строго "Network"
+                Value: rand.Float64() * 1000,  // 0-1000
+                Time: time.Now(),        // time.Now()
+            }
+            ch <- metric
+            time.Sleep(1500 * time.Millisecond) // 1500 мс
+        }
+    }()
+    return ch                            // <-chan Metric
+}
+```
+### 4 - Требования к генераторам - ВСЕ ВЫПОЛНЕНЫ
+
+- Небуферизованный канал chan MetricДа: make(chan Metric)  
+- Горутина для отправкиДа: go func() { ... }()   
+- math/rand.Float64()Да: rand.Float64() * N
+- time.Sleep() для интерваловДа: time.Sleep(X * time.Millisecond)
+- defer close(ch)Да: в каждой горутине
+- Возврат <-chan MetricДа: во всех функциях
+
+
+### 5 - fanIn() - ПОЛНОСТЬЮ СООТВЕТСТВУЕТ
+
+```go
+func fanIn(channels ...<-chan Metric) <-chan Metric {
+    out := make(chan Metric)             // Создан выходной канал
+    var wg sync.WaitGroup                // Создан WaitGroup
+    
+    for _, ch := range channels {        // Для каждого канала
+        wg.Add(1)                        // wg.Add(1) перед горутиной
+        go func(c <-chan Metric) {       // Отдельная горутина
+            defer wg.Done()              // defer wg.Done()
+            for metric := range c {      // for range для копирования
+                out <- metric            // Копирование в выходной канал
+            }
+        }(ch)
+    }
+    
+    go func() {                          // Отдельная горутина
+        wg.Wait()                        // Ждет завершения всех
+        close(out)                       // Закрывает выходной канал
+    }()
+    
+    return out                           // Возврат <-chan Metric
+}
+```
+
+### Проверка обязательной последовательности:
+
+- Создан выходной канал - out := make(chan Metric)
+- Создан WaitGroup - var wg sync.WaitGroup
+- wg.Add(1) перед горутиной - да
+- defer wg.Done() в горутине - да
+- for range для копирования - да
+- Отдельная горутина с wg.Wait() и close() - да
+
+### 6 - main() - ПОЛНОСТЬЮ СООТВЕТСТВУЕТ
+
+```go
+func main() {
+    rand.Seed(time.Now().UnixNano())     //  Инициализация генератора
+    
+    fmt.Println("Запуск системы мониторинга...") // Сообщение о запуске
+    
+    cpuCh := cpuMetrics()                // Создание каналов
+    memoryCh := memoryMetrics()          // 
+    networkCh := networkMetrics()        // 
+    
+    mergedCh := fanIn(cpuCh, memoryCh, networkCh) // Передача в fanIn
+    
+    for metric := range mergedCh {       //  for range по объединенному каналу
+        fmt.Printf("Источник: %s, Значение: %.2f, Время: %s\n", // Точный формат
+            metric.Source,
+            metric.Value,
+            metric.Time.Format("15:04:05.000"))
+    }
+    
+    fmt.Println("Мониторинг завершен.")  // Сообщение о завершении
+}
+```
+
+### Формат вывода соответствует: 
+
+![image](
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
